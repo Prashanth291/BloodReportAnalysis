@@ -1,0 +1,829 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Upload Blood Report - BloodSight</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            line-height: 1.6;
+            color: #2c3e50;
+            background: linear-gradient(135deg, #f8fbff 0%, #e8f4fd 100%);
+            min-height: 100vh;
+        }
+
+        /* Navbar */
+        .navbar {
+            background: #ffffff;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.08);
+            padding: 1rem 2rem;
+            position: sticky;
+            top: 0;
+            z-index: 1000;
+        }
+
+        .nav-container {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .logo {
+            font-size: 1.8rem;
+            font-weight: 700;
+            color: #2c3e50;
+            text-decoration: none;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .logo::before {
+            content: '🩸';
+            font-size: 1.5rem;
+        }
+
+        .back-btn {
+            background: transparent;
+            border: 2px solid #3498db;
+            color: #3498db;
+            padding: 0.5rem 1rem;
+            border-radius: 25px;
+            text-decoration: none;
+            font-weight: 500;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .back-btn:hover {
+            background: #3498db;
+            color: white;
+            transform: translateY(-1px);
+        }
+
+        /* Main Container */
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+
+        .page-header {
+            text-align: center;
+            margin-bottom: 3rem;
+        }
+
+        .page-title {
+            font-size: 2.5rem;
+            font-weight: 700;
+            color: #2c3e50;
+            margin-bottom: 1rem;
+        }
+
+        .page-subtitle {
+            font-size: 1.2rem;
+            color: #5a6c7d;
+            max-width: 600px;
+            margin: 0 auto;
+        }
+
+        /* Upload Section */
+        .upload-section {
+            background: white;
+            border-radius: 20px;
+            padding: 3rem;
+            box-shadow: 0 5px 20px rgba(0, 0, 0, 0.08);
+            margin-bottom: 2rem;
+            border: 1px solid #f1f3f4;
+        }
+
+        .upload-steps {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+            padding: 1.5rem;
+            background: #f8fbff;
+            border-radius: 15px;
+        }
+
+        .step-item {
+            display: flex;
+            align-items: center;
+            gap: 0.7rem;
+            color: #5a6c7d;
+            font-size: 0.95rem;
+        }
+
+        .step-icon {
+            width: 30px;
+            height: 30px;
+            background: #3498db;
+            color: white;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.8rem;
+            font-weight: 600;
+        }
+
+        /* Drop Area */
+        #drop-area {
+            border: 3px dashed #bdc3c7;
+            border-radius: 20px;
+            padding: 3rem 2rem;
+            text-align: center;
+            background: #fdfdfd;
+            transition: all 0.3s ease;
+            cursor: pointer;
+            position: relative;
+            overflow: hidden;
+        }
+
+        #drop-area:hover {
+            border-color: #3498db;
+            background: #f8fbff;
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(52, 152, 219, 0.1);
+        }
+
+        #drop-area.highlight {
+            border-color: #27ae60;
+            background: #f0fff0;
+            animation: pulse 0.5s ease-in-out;
+        }
+
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.02); }
+            100% { transform: scale(1); }
+        }
+
+        .upload-icon {
+            font-size: 4rem;
+            color: #3498db;
+            margin-bottom: 1rem;
+            display: block;
+        }
+
+        .upload-text {
+            font-size: 1.3rem;
+            font-weight: 600;
+            color: #2c3e50;
+            margin-bottom: 0.5rem;
+        }
+
+        .upload-subtext {
+            color: #5a6c7d;
+            margin-bottom: 1.5rem;
+            font-size: 1rem;
+        }
+
+        .select-file-btn {
+            background: #3498db;
+            color: white;
+            border: none;
+            padding: 1rem 2rem;
+            border-radius: 25px;
+            font-size: 1.1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .select-file-btn:hover {
+            background: #2980b9;
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(52, 152, 219, 0.3);
+        }
+
+        .file-types {
+            margin-top: 1rem;
+            color: #7f8c8d;
+            font-size: 0.9rem;
+        }
+
+        #fileElem {
+            display: none;
+        }
+
+        /* File Preview */
+        .file-preview {
+            margin-top: 2rem;
+            display: none;
+        }
+
+        .preview-card {
+            background: #f8fbff;
+            border: 2px solid #e3f2fd;
+            border-radius: 15px;
+            padding: 1.5rem;
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .file-icon {
+            font-size: 2.5rem;
+        }
+
+        .file-info h4 {
+            color: #2c3e50;
+            margin-bottom: 0.3rem;
+            font-size: 1.1rem;
+        }
+
+        .file-info p {
+            color: #5a6c7d;
+            font-size: 0.9rem;
+        }
+
+        .remove-file {
+            background: #e74c3c;
+            color: white;
+            border: none;
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            cursor: pointer;
+            margin-left: auto;
+            transition: all 0.3s ease;
+        }
+
+        .remove-file:hover {
+            background: #c0392b;
+            transform: scale(1.1);
+        }
+
+        /* Loader */
+        .loader-section {
+            display: none;
+            text-align: center;
+            padding: 2rem;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 5px 20px rgba(0, 0, 0, 0.08);
+            margin-bottom: 2rem;
+        }
+
+        .loader {
+            width: 60px;
+            height: 60px;
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #3498db;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 1rem;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .loader-text {
+            font-size: 1.2rem;
+            font-weight: 600;
+            color: #2c3e50;
+            margin-bottom: 0.5rem;
+        }
+
+        .loader-subtext {
+            color: #5a6c7d;
+        }
+
+        /* Results Section */
+        .results-section {
+            background: white;
+            border-radius: 20px;
+            padding: 2rem;
+            box-shadow: 0 5px 20px rgba(0, 0, 0, 0.08);
+            border: 1px solid #f1f3f4;
+            display: none;
+        }
+
+        .results-header {
+            display: flex;
+            align-items: center;
+            gap: 0.7rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .results-title {
+            font-size: 1.5rem;
+            font-weight: 600;
+            color: #2c3e50;
+        }
+
+        .results-content {
+            background: #f8f9fa;
+            border: 1px solid #e9ecef;
+            border-radius: 12px;
+            padding: 1.5rem;
+            font-family: 'Consolas', 'Monaco', monospace;
+            font-size: 0.9rem;
+            line-height: 1.6;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            max-height: 500px;
+            overflow-y: auto;
+        }
+
+        .error-message {
+            background: #fee;
+            border: 1px solid #fcc;
+            color: #c33;
+            padding: 1rem;
+            border-radius: 10px;
+            margin-bottom: 1rem;
+        }
+
+        .success-message {
+            background: #efe;
+            border: 1px solid #cfc;
+            color: #363;
+            padding: 1rem;
+            border-radius: 10px;
+            margin-bottom: 1rem;
+        }
+
+        /* Action Buttons */
+        .action-buttons {
+            display: flex;
+            gap: 1rem;
+            margin-top: 1.5rem;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            padding: 0.8rem 1.5rem;
+            border: none;
+            border-radius: 25px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-size: 0.95rem;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .btn-primary {
+            background: #3498db;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #2980b9;
+            transform: translateY(-1px);
+        }
+
+        .btn-success {
+            background: #27ae60;
+            color: white;
+        }
+
+        .btn-success:hover {
+            background: #229954;
+            transform: translateY(-1px);
+        }
+
+        .btn-outline {
+            background: transparent;
+            border: 2px solid #3498db;
+            color: #3498db;
+        }
+
+        .btn-outline:hover {
+            background: #3498db;
+            color: white;
+        }
+
+        /* Progress Bar */
+        .progress-container {
+            width: 100%;
+            background: #f1f3f4;
+            border-radius: 10px;
+            margin: 1rem 0;
+            overflow: hidden;
+            display: none;
+        }
+
+        .progress-bar {
+            height: 8px;
+            background: linear-gradient(90deg, #3498db, #27ae60);
+            width: 0%;
+            transition: width 0.3s ease;
+            border-radius: 10px;
+        }
+
+        /* Responsive Design */
+        @media (max-width: 768px) {
+            .container {
+                padding: 1rem;
+            }
+
+            .page-title {
+                font-size: 2rem;
+            }
+
+            .upload-section {
+                padding: 2rem 1rem;
+            }
+
+            #drop-area {
+                padding: 2rem 1rem;
+            }
+
+            .upload-steps {
+                grid-template-columns: 1fr;
+            }
+
+            .action-buttons {
+                flex-direction: column;
+            }
+
+            .btn {
+                justify-content: center;
+            }
+        }
+
+        /* Animations */
+        .fade-in {
+            animation: fadeIn 0.5s ease-in-out;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+    </style>
+</head>
+<body>
+    <!-- Navbar -->
+    <nav class="navbar">
+        <div class="nav-container">
+            <a href="#" class="logo">BloodSight</a>
+            <a href="/" class="back-btn">← Back to Home</a>
+        </div>
+    </nav>
+
+    <!-- Main Container -->
+    <div class="container">
+        <!-- Page Header -->
+        <div class="page-header">
+            <h1 class="page-title">📋 Upload Your Blood Report</h1>
+            <p class="page-subtitle">Upload your blood test report and get instant AI-powered insights in seconds</p>
+        </div>
+
+        <!-- Upload Section -->
+        <div class="upload-section">
+            <div class="upload-steps">
+                <div class="step-item">
+                    <div class="step-icon">1</div>
+                    <span>Choose your file</span>
+                </div>
+                <div class="step-item">
+                    <div class="step-icon">2</div>
+                    <span>AI processes report</span>
+                </div>
+                <div class="step-item">
+                    <div class="step-icon">3</div>
+                    <span>Get detailed insights</span>
+                </div>
+            </div>
+
+            <div id="drop-area">
+                <form class="my-form">
+                    <span class="upload-icon">📄</span>
+                    <p class="upload-text">Drag & drop your report here</p>
+                    <p class="upload-subtext">or click to browse files</p>
+                    
+                    <input type="file" id="fileElem" accept="image/*,application/pdf" onchange="handleFiles(this.files)">
+                    <label class="select-file-btn" for="fileElem">
+                        📁 Select File
+                    </label>
+                    
+                    <div class="file-types">
+                        Supports: PDF, JPG, PNG, JPEG (Max 10MB)
+                    </div>
+                </form>
+            </div>
+
+            <!-- File Preview -->
+            <div class="file-preview" id="filePreview">
+                <div class="preview-card">
+                    <span class="file-icon" id="fileIcon">📄</span>
+                    <div class="file-info">
+                        <h4 id="fileName">filename.pdf</h4>
+                        <p id="fileSize">1.2 MB</p>
+                    </div>
+                    <button class="remove-file" onclick="removeFile()" title="Remove file">×</button>
+                </div>
+            </div>
+
+            <!-- Progress Bar -->
+            <div class="progress-container" id="progressContainer">
+                <div class="progress-bar" id="progressBar"></div>
+            </div>
+        </div>
+
+        <!-- Loader Section -->
+        <div class="loader-section" id="loaderSection">
+            <div class="loader"></div>
+            <p class="loader-text">🤖 AI is analyzing your report...</p>
+            <p class="loader-subtext">This usually takes 15-30 seconds</p>
+        </div>
+
+        <!-- Results Section -->
+        <div class="results-section" id="resultsSection">
+            <div class="results-header">
+                <span>📊</span>
+                <h3 class="results-title">Analysis Results</h3>
+            </div>
+            
+            <div id="messageContainer"></div>
+            
+            <pre class="results-content" id="resultContainer">Your analysis results will appear here...</pre>
+            
+            <div class="action-buttons">
+                <button class="btn btn-success" onclick="downloadResults()">
+                    💾 Download Report
+                </button>
+                <button class="btn btn-primary" onclick="shareResults()">
+                    🔗 Share Results
+                </button>
+                <button class="btn btn-outline" onclick="uploadAnother()">
+                    📄 Upload Another
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let dropArea = document.getElementById('drop-area');
+        let loaderSection = document.getElementById('loaderSection');
+        let resultsSection = document.getElementById('resultsSection');
+        let resultContainer = document.getElementById('resultContainer');
+        let filePreview = document.getElementById('filePreview');
+        let progressContainer = document.getElementById('progressContainer');
+        let progressBar = document.getElementById('progressBar');
+        let messageContainer = document.getElementById('messageContainer');
+        let currentFile = null;
+
+        // Drag and drop event handlers
+        ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+            dropArea.addEventListener(eventName, preventDefaults, false);
+            document.body.addEventListener(eventName, preventDefaults, false);
+        });
+
+        function preventDefaults(e) {
+            e.preventDefault();
+            e.stopPropagation();
+        }
+
+        ['dragenter', 'dragover'].forEach(eventName => {
+            dropArea.addEventListener(eventName, highlight, false);
+        });
+
+        ['dragleave', 'drop'].forEach(eventName => {
+            dropArea.addEventListener(eventName, unhighlight, false);
+        });
+
+        function highlight(e) {
+            dropArea.classList.add('highlight');
+        }
+
+        function unhighlight(e) {
+            dropArea.classList.remove('highlight');
+        }
+
+        dropArea.addEventListener('drop', handleDrop, false);
+
+        function handleDrop(e) {
+            let dt = e.dataTransfer;
+            let files = dt.files;
+            handleFiles(files);
+        }
+
+        function handleFiles(files) {
+            if (files.length > 0) {
+                const file = files[0];
+                
+                // Validate file
+                if (!validateFile(file)) {
+                    return;
+                }
+                
+                currentFile = file;
+                showFilePreview(file);
+                uploadFile(file);
+            }
+        }
+
+        function validateFile(file) {
+            const maxSize = 10 * 1024 * 1024; // 10MB
+            const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'application/pdf'];
+            
+            if (file.size > maxSize) {
+                showMessage('File size too large. Please select a file under 10MB.', 'error');
+                return false;
+            }
+            
+            if (!allowedTypes.includes(file.type)) {
+                showMessage('Invalid file type. Please upload PDF, JPG, PNG, or JPEG files only.', 'error');
+                return false;
+            }
+            
+            return true;
+        }
+
+        function showFilePreview(file) {
+            const fileName = document.getElementById('fileName');
+            const fileSize = document.getElementById('fileSize');
+            const fileIcon = document.getElementById('fileIcon');
+            
+            fileName.textContent = file.name;
+            fileSize.textContent = formatFileSize(file.size);
+            
+            // Set appropriate icon
+            if (file.type.includes('pdf')) {
+                fileIcon.textContent = '📄';
+            } else if (file.type.includes('image')) {
+                fileIcon.textContent = '🖼️';
+            }
+            
+            filePreview.style.display = 'block';
+            filePreview.classList.add('fade-in');
+        }
+
+        function removeFile() {
+            currentFile = null;
+            filePreview.style.display = 'none';
+            document.getElementById('fileElem').value = '';
+            resultsSection.style.display = 'none';
+            progressContainer.style.display = 'none';
+            progressBar.style.width = '0%';
+        }
+
+        function formatFileSize(bytes) {
+            if (bytes === 0) return '0 Bytes';
+            const k = 1024;
+            const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+        }
+
+        function uploadFile(file) {
+            let url = '/upload';
+            let formData = new FormData();
+            formData.append('file', file);
+
+            // Show progress
+            progressContainer.style.display = 'block';
+            loaderSection.style.display = 'block';
+            loaderSection.classList.add('fade-in');
+            resultsSection.style.display = 'none';
+            
+            // Simulate progress
+            let progress = 0;
+            const progressInterval = setInterval(() => {
+                progress += Math.random() * 15;
+                if (progress > 90) progress = 90;
+                progressBar.style.width = progress + '%';
+            }, 200);
+
+            fetch(url, {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                clearInterval(progressInterval);
+                progressBar.style.width = '100%';
+                
+                setTimeout(() => {
+                    loaderSection.style.display = 'none';
+                    progressContainer.style.display = 'none';
+                    showResults(data);
+                }, 1000);
+            })
+            .catch(error => {
+                clearInterval(progressInterval);
+                loaderSection.style.display = 'none';
+                progressContainer.style.display = 'none';
+                showMessage('Upload failed: ' + error.message, 'error');
+                console.error('Error:', error);
+            });
+        }
+
+        function showResults(data) {
+            resultsSection.style.display = 'block';
+            resultsSection.classList.add('fade-in');
+            
+            if (data.error) {
+                showMessage('Analysis Error: ' + data.error, 'error');
+                resultContainer.textContent = 'Unable to process the file. Please try again with a clearer image or different file format.';
+            } else {
+                showMessage('✅ Analysis completed successfully!', 'success');
+                try {
+                    // Try to parse and format JSON
+                    const jsonString = data.data.replace(/```json\n|```/g, '').trim();
+                    const jsonData = JSON.parse(jsonString);
+                    resultContainer.textContent = JSON.stringify(jsonData, null, 2);
+                } catch (e) {
+                    // If parsing fails, show raw text
+                    resultContainer.textContent = data.data;
+                }
+            }
+            
+            // Scroll to results
+            resultsSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+
+        function showMessage(message, type) {
+            const messageDiv = document.createElement('div');
+            messageDiv.className = type === 'error' ? 'error-message' : 'success-message';
+            messageDiv.textContent = message;
+            
+            messageContainer.innerHTML = '';
+            messageContainer.appendChild(messageDiv);
+            
+            // Auto hide after 5 seconds
+            setTimeout(() => {
+                messageDiv.style.animation = 'fadeOut 0.3s ease-out forwards';
+                setTimeout(() => messageDiv.remove(), 300);
+            }, 5000);
+        }
+
+        // Action button functions
+        function downloadResults() {
+            const content = resultContainer.textContent;
+            const blob = new Blob([content], { type: 'text/plain' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'blood-report-analysis.txt';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            
+            showMessage('📥 Report downloaded successfully!', 'success');
+        }
+
+        function shareResults() {
+            const content = resultContainer.textContent;
+            if (navigator.share) {
+                navigator.share({
+                    title: 'Blood Report Analysis',
+                    text: content.substring(0, 200) + '...',
+                    url: window.location.href
+                });
+            } else {
+                // Fallback: copy to clipboard
+                navigator.clipboard.writeText(content).then(() => {
+                    showMessage('📋 Results copied to clipboard!', 'success');
+                });
+            }
+        }
+
+        function uploadAnother() {
+            removeFile();
+            document.getElementById('drop-area').scrollIntoView({ behavior: 'smooth' });
+        }
+
+        // Keyboard accessibility
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape' && currentFile) {
+                removeFile();
+            }
+        });
+
+        // Add fade out animation CSS
+        const style = document.createElement('style');
+        style.textContent = `
+            @keyframes fadeOut {
+                from { opacity: 1; transform: translateY(0); }
+                to { opacity: 0; transform: translateY(-10px); }
+            }
+        `;
+        document.head.appendChild(style);
+    </script>
+</body>
+</html>
