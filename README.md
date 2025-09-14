@@ -21,7 +21,7 @@ This project bridges the gap between raw blood test reports and understandable, 
 
 ## Architecture Diagram
 
-
+![Architecture Diagram](/Architecture.png)
 
 
 ---
