@@ -1,0 +1,13 @@
+Flask
+Flask-Cors
+Werkzeug
+mysql-connector-python
+PyJWT
+pandas
+numpy
+matplotlib
+seaborn
+Pillow
+opencv-python
+pytesseract
+PyPDF2

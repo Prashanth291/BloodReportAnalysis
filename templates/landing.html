@@ -926,56 +926,125 @@
         });
 
         // Form submissions with loading states
-        document.getElementById('loginForm').addEventListener('submit', (e) => {
+        document.getElementById('loginForm').addEventListener('submit', async (e) => {
             e.preventDefault();
             const email = document.getElementById('loginEmail').value;
             const password = document.getElementById('loginPassword').value;
             
-            if (email && password) {
-                // Show loading
-                document.getElementById('loginLoading').classList.add('show');
-                document.getElementById('loginForm').style.display = 'none';
+            if (!email || !password) {
+                showNotification('Please fill in all fields', 'error');
+                return;
+            }
+            
+            // Show loading
+            const form = document.getElementById('loginForm');
+            const loading = document.getElementById('loginLoading');
+            const successMsg = document.getElementById('loginSuccess');
+            
+            form.style.display = 'none';
+            loading.classList.add('show');
+            
+            try {
+                const response = await fetch('/api/auth/login', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ email, password })
+                });
                 
-                // Simulate API call
-                setTimeout(() => {
-                    document.getElementById('loginLoading').classList.remove('show');
-                    document.getElementById('loginSuccess').classList.add('show');
+                const data = await response.json();
+                
+                if (data.success) {
+                    // Hide loading, show success
+                    loading.classList.remove('show');
+                    successMsg.classList.add('show');
+                    
+                    // Store user data (you might want to use a more secure method)
+                    localStorage.setItem('userToken', data.token);
+                    localStorage.setItem('userData', JSON.stringify(data.user));
                     
                     setTimeout(() => {
-                        login(email.split('@')[0]);
+                        login(data.user.first_name || data.user.full_name);
                         closeModal('loginModal');
+                        showNotification('Welcome back!', 'success');
                     }, 1500);
-                }, 2000);
+                } else {
+                    throw new Error(data.error || 'Login failed');
+                }
+                
+            } catch (error) {
+                // Hide loading, show error
+                loading.classList.remove('show');
+                form.style.display = 'block';
+                showNotification(error.message, 'error');
             }
         });
 
-        document.getElementById('signupForm').addEventListener('submit', (e) => {
+        document.getElementById('signupForm').addEventListener('submit', async (e) => {
             e.preventDefault();
             const name = document.getElementById('signupName').value;
             const email = document.getElementById('signupEmail').value;
             const password = document.getElementById('signupPassword').value;
             
-            if (name && email && password) {
-                // Show loading
-                document.getElementById('signupLoading').classList.add('show');
-                document.getElementById('signupForm').style.display = 'none';
+            if (!name || !email || !password) {
+                showNotification('Please fill in all fields', 'error');
+                return;
+            }
+            
+            // Show loading
+            const form = document.getElementById('signupForm');
+            const loading = document.getElementById('signupLoading');
+            const successMsg = document.getElementById('signupSuccess');
+            
+            form.style.display = 'none';
+            loading.classList.add('show');
+            
+            try {
+                const response = await fetch('/api/auth/register', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ 
+                        name: name,  // Send as single name field
+                        email: email, 
+                        password: password 
+                    })
+                });
                 
-                // Simulate API call
-                setTimeout(() => {
-                    document.getElementById('signupLoading').classList.remove('show');
-                    document.getElementById('signupSuccess').classList.add('show');
+                const data = await response.json();
+                
+                if (data.success) {
+                    // Hide loading, show success
+                    loading.classList.remove('show');
+                    successMsg.classList.add('show');
+                    
+                    // Store user data
+                    localStorage.setItem('userToken', data.token);
+                    localStorage.setItem('userData', JSON.stringify(data.user));
                     
                     setTimeout(() => {
-                        login(name);
+                        login(data.user.first_name || name.split(' ')[0]);
                         closeModal('signupModal');
+                        showNotification('Welcome to BloodSight!', 'success');
                     }, 1500);
-                }, 2000);
+                } else {
+                    throw new Error(data.error || 'Registration failed');
+                }
+                
+            } catch (error) {
+                // Hide loading, show error
+                loading.classList.remove('show');
+                form.style.display = 'block';
+                showNotification(error.message, 'error');
             }
         });
 
+
         // Login/logout functions
-        function login(username) {
-            currentUser = { name: username };
+        function login(username, userData = null) {
+            currentUser = userData || { name: username };
             document.body.classList.remove('user-logged-out');
             document.body.classList.add('user-logged-in');
             document.getElementById('username').textContent = username;
@@ -990,11 +1059,34 @@
             document.getElementById('signupForm').style.display = 'block';
         }
 
-        function logout() {
-            currentUser = null;
-            document.body.classList.remove('user-logged-in');
-            document.body.classList.add('user-logged-out');
-            document.getElementById('profileDropdown').classList.remove('show');
+        async function logout() {
+            try {
+                const token = localStorage.getItem('userToken');
+                if (token) {
+                    // Optional: Call logout endpoint to invalidate token
+                    await fetch('/api/auth/logout', {
+                        method: 'POST',
+                        headers: {
+                            'Authorization': `Bearer ${token}`,
+                            'Content-Type': 'application/json'
+                        }
+                    });
+                }
+            } catch (error) {
+                console.log('Logout API call failed, proceeding with local logout');
+            } finally {
+                // Clear local storage
+                localStorage.removeItem('userToken');
+                localStorage.removeItem('userData');
+                
+                // Update UI
+                currentUser = null;
+                document.body.classList.remove('user-logged-in');
+                document.body.classList.add('user-logged-out');
+                document.getElementById('profileDropdown').classList.remove('show');
+                
+                showNotification('You have been logged out', 'success');
+            }
         }
 
         // Smooth scrolling for anchor links
@@ -1011,6 +1103,16 @@
             });
         });
 
+        // Add authentication header to future API calls
+        function getAuthHeaders() {
+            const token = localStorage.getItem('userToken');
+            return {
+                'Content-Type': 'application/json',
+                ...(token && { 'Authorization': `Bearer ${token}` })
+            };
+        }
+
+
         // Add subtle animations on scroll
         const observerOptions = {
             threshold: 0.1,
@@ -1026,15 +1128,21 @@
             });
         }, observerOptions);
 
-        // Observe feature cards
+        // Check for existing session on page load
         document.addEventListener('DOMContentLoaded', () => {
-            const cards = document.querySelectorAll('.feature-card, .step-card');
-            cards.forEach(card => {
-                card.style.opacity = '0';
-                card.style.transform = 'translateY(20px)';
-                card.style.transition = 'opacity 0.6s ease, transform 0.6s ease';
-                observer.observe(card);
-            });
+            const token = localStorage.getItem('userToken');
+            const userData = localStorage.getItem('userData');
+            
+            if (token && userData) {
+                try {
+                    const user = JSON.parse(userData);
+                    login(user.first_name || user.full_name || 'User', user);
+                } catch (error) {
+                    // Clear invalid data
+                    localStorage.removeItem('userToken');
+                    localStorage.removeItem('userData');
+                }
+            }
         });
 
         // Add keyboard support for better accessibility
@@ -1118,7 +1226,7 @@
             }
         });
 
-        // Add success notifications for better UX
+        // Enhanced notification system
         function showNotification(message, type = 'success') {
             const notification = document.createElement('div');
             notification.style.cssText = `
@@ -1133,22 +1241,97 @@
                 animation: slideInRight 0.3s ease;
                 max-width: 300px;
                 box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+                cursor: pointer;
             `;
             
             if (type === 'success') {
                 notification.style.background = '#27ae60';
+                notification.innerHTML = `✓ ${message}`;
             } else if (type === 'error') {
                 notification.style.background = '#e74c3c';
+                notification.innerHTML = `✗ ${message}`;
             }
             
-            notification.textContent = message;
-            document.body.appendChild(notification);
-            
-            setTimeout(() => {
+            // Click to dismiss
+            notification.addEventListener('click', () => {
                 notification.style.animation = 'slideOutRight 0.3s ease forwards';
                 setTimeout(() => notification.remove(), 300);
-            }, 3000);
+            });
+            
+            document.body.appendChild(notification);
+            
+            // Auto-dismiss after 4 seconds
+            setTimeout(() => {
+                if (notification.parentNode) {
+                    notification.style.animation = 'slideOutRight 0.3s ease forwards';
+                    setTimeout(() => notification.remove(), 300);
+                }
+            }, 4000);
         }
+
+        function enhanceFormValidation() {
+            const emailInputs = document.querySelectorAll('input[type="email"]');
+            const passwordInputs = document.querySelectorAll('input[type="password"]');
+            
+            emailInputs.forEach(input => {
+                input.addEventListener('blur', function() {
+                    const email = this.value.trim();
+                    if (email && !isValidEmail(email)) {
+                        this.style.borderColor = '#e74c3c';
+                        this.style.backgroundColor = '#ffeaea';
+                        showFieldError(this, 'Please enter a valid email address');
+                    } else if (email) {
+                        this.style.borderColor = '#27ae60';
+                        this.style.backgroundColor = '#f0fff0';
+                        clearFieldError(this);
+                    }
+                });
+            });
+            passwordInputs.forEach(input => {
+            input.addEventListener('input', function() {
+                const password = this.value;
+                if (password.length > 0 && password.length < 6) {
+                    this.style.borderColor = '#f39c12';
+                    this.style.backgroundColor = '#fff9e6';
+                    showFieldError(this, 'Password should be at least 6 characters');
+                } else if (password.length >= 6) {
+                    this.style.borderColor = '#27ae60';
+                    this.style.backgroundColor = '#f0fff0';
+                    clearFieldError(this);
+                }
+            });
+        });
+    }
+
+
+    function isValidEmail(email) {
+    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+    }
+
+
+        function showFieldError(field, message) {
+        clearFieldError(field);
+        const errorDiv = document.createElement('div');
+        errorDiv.className = 'field-error';
+        errorDiv.style.cssText = `
+            color: #e74c3c;
+            font-size: 0.85rem;
+            margin-top: 0.25rem;
+            padding: 0.25rem;
+        `;
+        errorDiv.textContent = message;
+        field.parentNode.appendChild(errorDiv);
+    }
+
+    function clearFieldError(field) {
+        const existingError = field.parentNode.querySelector('.field-error');
+        if (existingError) {
+            existingError.remove();
+        }
+    }
+
+    // Initialize enhanced validation
+    document.addEventListener('DOMContentLoaded', enhanceFormValidation);
 
         // Add CSS animation for notifications
         const style = document.createElement('style');
