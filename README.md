@@ -47,5 +47,3 @@ This project bridges the gap between raw blood test reports and understandable, 
 5. **Explainability:** SHAP-based XAI generates clear abnormality explanations.
 6. **Recommendations:** Context-specific, doctor-verified guidance for flagged results.
 7. **Storage & Visualization:** Data securely stored and visualized for monitoring and review.
-
----
