@@ -737,20 +737,18 @@
             resultsSection.style.display = 'block';
             resultsSection.classList.add('fade-in');
             
-            if (data.error) {
+            if (data.success) {
+                showMessage('✅ Analysis completed successfully!', 'success');
+                // The 'parameters' key holds the JSON object of results
+                if (data.parameters) {
+                    resultContainer.textContent = JSON.stringify(data.parameters, null, 2);
+                } else {
+                    resultContainer.textContent = 'No parameters were found in the report.';
+                }
+            } else {
+                // The 'error' key holds the error message
                 showMessage('Analysis Error: ' + data.error, 'error');
                 resultContainer.textContent = 'Unable to process the file. Please try again with a clearer image or different file format.';
-            } else {
-                showMessage('✅ Analysis completed successfully!', 'success');
-                try {
-                    // Try to parse and format JSON
-                    const jsonString = data.data.replace(/```json\n|```/g, '').trim();
-                    const jsonData = JSON.parse(jsonString);
-                    resultContainer.textContent = JSON.stringify(jsonData, null, 2);
-                } catch (e) {
-                    // If parsing fails, show raw text
-                    resultContainer.textContent = data.data;
-                }
             }
             
             // Scroll to results
