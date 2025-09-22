@@ -30,6 +30,17 @@ from typing import Optional, Dict, Any
 # Load environment variables from .env file
 load_dotenv()
 
+
+# Debug prints
+GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY")
+print(f"=== API KEY DEBUG ===")
+print(f"API Key exists: {bool(GEMINI_API_KEY)}")
+print(f"API Key length: {len(GEMINI_API_KEY) if GEMINI_API_KEY else 0}")
+print(f"API Key first 10 chars: {GEMINI_API_KEY[:10] if GEMINI_API_KEY else 'None'}")
+print(f"API Key last 4 chars: {GEMINI_API_KEY[-4:] if GEMINI_API_KEY else 'None'}")
+print("====================")
+
+
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -486,18 +497,24 @@ def determine_parameter_status(parameter_name: str, value: float, user_gender: s
 # =====================================================
 
 @app.route('/api/upload', methods=['POST'])
-@require_auth
+# @require_auth  # Commented out for now
 def upload_report():
-    """Enhanced file upload and processing with Gemini API"""
+    """Enhanced file upload and processing with better error logging"""
     try:
+        print("=== UPLOAD DEBUG START ===")
+        
         if 'file' not in request.files:
+            print("ERROR: No file in request")
             return jsonify({
                 'success': False,
                 'error': 'No file uploaded'
             }), 400
         
         file = request.files['file']
+        print(f"File received: {file.filename}, size: {file.content_length if hasattr(file, 'content_length') else 'unknown'}")
+        
         if file.filename == '':
+            print("ERROR: Empty filename")
             return jsonify({
                 'success': False,
                 'error': 'No file selected'
@@ -512,8 +529,10 @@ def upload_report():
         }
         
         file_extension = file.filename.rsplit('.', 1)[1].lower() if '.' in file.filename else ''
+        print(f"File extension: {file_extension}, MIME type: {file.mimetype}")
         
         if file_extension not in allowed_extensions or file.mimetype not in allowed_mime_types:
+            print(f"ERROR: Invalid file type - extension: {file_extension}, mime: {file.mimetype}")
             return jsonify({
                 'success': False,
                 'error': 'Invalid file type. Please upload PDF or image files only.'
@@ -522,43 +541,80 @@ def upload_report():
         # Save file securely
         filename = secure_filename(f"{uuid.uuid4()}_{file.filename}")
         file_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
-        file.save(file_path)
+        print(f"Saving file to: {file_path}")
         
-        file_size = os.path.getsize(file_path)
-        user_id = request.current_user['user_id']
-        
-        # Create report record
-        report_id = str(uuid.uuid4())
-        
-        query = """
-            INSERT INTO blood_reports (
-                report_id, user_id, original_filename, file_path, 
-                file_size, file_type, report_status, created_at, updated_at
-            ) VALUES (%s, %s, %s, %s, %s, %s, 'processing', NOW(), NOW())
-        """
-        
-        result = execute_query(query, (
-            report_id, user_id, file.filename,
-            file_path, file_size, file_extension
-        ))
-        
-        if not result:
+        try:
+            file.save(file_path)
+            file_size = os.path.getsize(file_path)
+            print(f"File saved successfully, size: {file_size} bytes")
+        except Exception as e:
+            print(f"ERROR saving file: {str(e)}")
             return jsonify({
                 'success': False,
-                'error': 'Failed to create report record'
+                'error': 'Failed to save uploaded file'
             }), 500
+        
+        # For now, skip database operations since we don't have user_id
+        # TODO: Re-enable when authentication is restored
         
         # Process with Gemini API
         try:
-            file.seek(0)
-            file_bytes = file.read()
+            print("Starting Gemini API processing...")
             
-            model = genai.GenerativeModel('gemini-2.5')
+            # Test API key first
+            if not GEMINI_API_KEY:
+                print("ERROR: GEMINI_API_KEY not found")
+                return jsonify({
+                    'success': False,
+                    'error': 'API configuration error'
+                }), 500
             
-            uploaded_file = {
-                'mime_type': file.mimetype,
-                'data': file_bytes
-            }
+            print(f"API Key available: {len(GEMINI_API_KEY)} characters")
+            
+            # Test API connection
+            model = genai.GenerativeModel('gemini-1.5-flash')
+            print("Model created successfully")
+            
+            # Upload file to Gemini
+            print("Uploading file to Gemini...")
+            gemini_file = genai.upload_file(file_path)
+            print(f"File uploaded to Gemini: {gemini_file.name}")
+            
+            # Wait for processing to complete
+            print("Waiting for Gemini processing...")
+            import time
+            max_wait_time = 30  # 30 seconds timeout
+            wait_time = 0
+            
+            while gemini_file.state.name == "PROCESSING" and wait_time < max_wait_time:
+                time.sleep(1)
+                wait_time += 1
+                gemini_file = genai.get_file(gemini_file.name)
+                print(f"Processing... ({wait_time}s)")
+                
+            if wait_time >= max_wait_time:
+                print("ERROR: Gemini processing timeout")
+                try:
+                    genai.delete_file(gemini_file.name)
+                except:
+                    pass
+                return jsonify({
+                    'success': False,
+                    'error': 'Processing timeout. Please try again.'
+                }), 500
+                
+            if gemini_file.state.name == "FAILED":
+                print(f"ERROR: Gemini processing failed - state: {gemini_file.state.name}")
+                try:
+                    genai.delete_file(gemini_file.name)
+                except:
+                    pass
+                return jsonify({
+                    'success': False,
+                    'error': 'File processing failed. Please try a different image.'
+                }), 500
+            
+            print(f"Gemini processing complete - state: {gemini_file.state.name}")
             
             prompt = """
             You are a medical report analysis expert. Extract blood test parameters from this medical report.
@@ -593,17 +649,37 @@ def upload_report():
             Extract only numeric values. If a parameter is not found or unclear, use null.
             """
             
-            response = model.generate_content([prompt, uploaded_file])
+            print("Generating content with Gemini...")
+            response = model.generate_content([prompt, gemini_file])
             response_text = response.text.strip()
             
-            # Clean response
-            response_text = re.sub(r'^```json\s*', '', response_text)
-            response_text = re.sub(r'\s*```$', '', response_text)
+            print(f"Gemini API Response length: {len(response_text)} characters")
+            print(f"Response preview: {response_text[:200]}...")
+            
+            # Clean up the uploaded file from Gemini
+            try:
+                genai.delete_file(gemini_file.name)
+                print("Gemini file cleaned up")
+            except Exception as e:
+                print(f"Warning: Failed to cleanup Gemini file: {e}")
+            
+            # Clean response - more robust cleaning
+            response_text = re.sub(r'^```json\s*', '', response_text, flags=re.MULTILINE)
+            response_text = re.sub(r'\s*```$', '', response_text, flags=re.MULTILINE)
+            response_text = response_text.strip()
+            
+            print(f"Cleaned response: {response_text[:200]}...")
             
             try:
                 parameters = json.loads(response_text)
-            except json.JSONDecodeError:
-                raise ValueError("Invalid JSON response from AI model")
+                print("JSON parsed successfully")
+            except json.JSONDecodeError as e:
+                print(f"ERROR: JSON decode failed: {str(e)}")
+                print(f"Raw response: {response_text}")
+                return jsonify({
+                    'success': False,
+                    'error': f'Invalid response format from AI model: {str(e)}'
+                }), 500
             
             # Filter out null values and validate
             valid_parameters = {}
@@ -611,56 +687,55 @@ def upload_report():
                 if value is not None and isinstance(value, (int, float)) and value >= 0:
                     valid_parameters[key] = float(value)
             
+            print(f"Valid parameters found: {len(valid_parameters)}")
+            print(f"Parameters: {list(valid_parameters.keys())}")
+            
             if not valid_parameters:
-                # Update report status
-                execute_query(
-                    "UPDATE blood_reports SET report_status = 'failed', notes = %s, updated_at = NOW() WHERE report_id = %s",
-                    ('No valid blood parameters found', report_id)
-                )
                 return jsonify({
                     'success': False,
-                    'error': 'No blood parameters could be extracted from the report'
+                    'error': 'No valid blood parameters found in the report'
                 }), 400
             
-            # Save parameters to database
-            if save_parameters_to_db(report_id, valid_parameters, user_id):
-                execute_query(
-                    "UPDATE blood_reports SET report_status = 'completed', processed_at = NOW(), updated_at = NOW() WHERE report_id = %s",
-                    (report_id,)
-                )
-                
-                logger.info(f"Report processed successfully: {report_id}")
-                
-                return jsonify({
-                    'success': True,
-                    'message': 'Report processed successfully',
-                    'report_id': report_id,
-                    'parameters_found': len(valid_parameters),
-                    'parameters': valid_parameters
-                }), 200
-            else:
-                execute_query(
-                    "UPDATE blood_reports SET report_status = 'failed', notes = %s, updated_at = NOW() WHERE report_id = %s",
-                    ('Failed to save parameters', report_id)
-                )
-                return jsonify({
-                    'success': False,
-                    'error': 'Failed to save extracted parameters'
-                }), 500
+            print("=== UPLOAD DEBUG SUCCESS ===")
+            
+            return jsonify({
+                'success': True,
+                'message': 'Report processed successfully',
+                'parameters_found': len(valid_parameters),
+                'parameters': valid_parameters
+            }), 200
                 
         except Exception as e:
-            logger.error(f"Processing error for report {report_id}: {str(e)}")
-            execute_query(
-                "UPDATE blood_reports SET report_status = 'failed', notes = %s, updated_at = NOW() WHERE report_id = %s",
-                (f'Processing failed: {str(e)}', report_id)
-            )
+            print(f"ERROR in Gemini processing: {str(e)}")
+            print(f"Exception type: {type(e).__name__}")
+            import traceback
+            print(f"Traceback: {traceback.format_exc()}")
+            
+            # Clean up Gemini file if it exists
+            try:
+                if 'gemini_file' in locals():
+                    genai.delete_file(gemini_file.name)
+            except:
+                pass
+                
             return jsonify({
                 'success': False,
-                'error': 'Failed to process report. Please ensure the image is clear and contains blood test results.'
+                'error': f'Processing failed: {str(e)}'
             }), 500
+        
+        finally:
+            # Clean up local file
+            try:
+                if os.path.exists(file_path):
+                    os.remove(file_path)
+                    print("Local file cleaned up")
+            except Exception as e:
+                print(f"Warning: Failed to cleanup local file: {e}")
             
     except Exception as e:
-        logger.error(f"Upload error: {str(e)}")
+        print(f"ERROR in upload route: {str(e)}")
+        import traceback
+        print(f"Traceback: {traceback.format_exc()}")
         return jsonify({
             'success': False,
             'error': 'Upload failed'
@@ -782,8 +857,18 @@ def health_check():
 # =====================================================
 # MAIN APPLICATION
 # =====================================================
-
+# def test():
+#     # Test Gemini API connection on startup
+#     try:
+#         model = genai.GenerativeModel('gemini-2.5-pro')
+#         test_response = model.generate_content("Test connection")
+#         logger.info("Gemini API connection successful")
+#     except Exception as e:
+#         logger.error(f"Gemini API connection failed: {str(e)}")
+#         raise ValueError(f"Gemini API setup failed: {str(e)}")
+    
 if __name__ == '__main__':
+    # test()
     # Validate required environment variables on startup
     required_env_vars = ['SECRET_KEY', 'DB_PASSWORD', 'GEMINI_API_KEY']
     missing_vars = [var for var in required_env_vars if not os.environ.get(var)]
