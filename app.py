@@ -572,7 +572,7 @@ def upload_report():
             print(f"API Key available: {len(GEMINI_API_KEY)} characters")
             
             # Test API connection
-            model = genai.GenerativeModel('gemini-1.5-flash')
+            model = genai.GenerativeModel('gemini-2.5-pro')
             print("Model created successfully")
             
             # Upload file to Gemini
@@ -853,6 +853,87 @@ def health_check():
             'status': 'unhealthy',
             'error': str(e)
         }), 500
+
+
+
+
+# GET /api/reports - List all user reports
+@app.route('/api/reports', methods=['GET'])
+@require_auth
+def get_user_reports():
+    """Returns list of all reports for logged-in user"""
+    user_id = request.current_user['user_id']
+    
+    query = """
+        SELECT r.report_id, r.upload_date, r.file_name,
+               COUNT(pv.value_id) as parameter_count
+        FROM blood_reports r
+        LEFT JOIN blood_parameter_values pv ON r.report_id = pv.report_id
+        WHERE r.user_id = %s
+        GROUP BY r.report_id
+        ORDER BY r.upload_date DESC
+    """
+    reports = execute_query(query, (user_id,), 'all')
+    
+    return jsonify({
+        'success': True,
+        'reports': reports
+    })
+
+
+# GET /api/reports/{report_id} - Get specific report details
+@app.route('/api/reports/<report_id>', methods=['GET'])
+@require_auth
+def get_report_details(report_id):
+    """Returns detailed analysis of a specific report"""
+    user_id = request.current_user['user_id']
+    
+    query = """
+        SELECT p.parameter_name, p.unit, 
+               pv.value, pv.status,
+               p.normal_range_min, p.normal_range_max
+        FROM blood_parameter_values pv
+        JOIN blood_parameters p ON pv.parameter_id = p.parameter_id
+        JOIN blood_reports r ON pv.report_id = r.report_id
+        WHERE pv.report_id = %s AND r.user_id = %s
+    """
+    parameters = execute_query(query, (report_id, user_id), 'all')
+    
+    return jsonify({
+        'success': True,
+        'parameters': parameters
+    })
+
+
+# GET /api/trends/{parameter_name} - Get parameter trend
+@app.route('/api/trends/<parameter_name>', methods=['GET'])
+@require_auth
+def get_parameter_trend(parameter_name):
+    """Returns time-series data for a specific parameter"""
+    user_id = request.current_user['user_id']
+    
+    query = """
+        SELECT r.upload_date, pv.value, pv.status,
+               p.normal_range_min, p.normal_range_max, p.unit
+        FROM blood_parameter_values pv
+        JOIN blood_reports r ON pv.report_id = r.report_id
+        JOIN blood_parameters p ON pv.parameter_id = p.parameter_id
+        WHERE r.user_id = %s 
+          AND LOWER(p.parameter_name) = LOWER(%s)
+        ORDER BY r.upload_date ASC
+    """
+    trend_data = execute_query(query, (user_id, parameter_name), 'all')
+    
+    return jsonify({
+        'success': True,
+        'parameter': parameter_name,
+        'data': trend_data
+    })
+
+
+
+
+
 
 # =====================================================
 # MAIN APPLICATION
